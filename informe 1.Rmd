@@ -1,0 +1,58 @@
+---
+title: "Análisis de procesos puntuales para actividad comercial en Medellín"
+author: "Julian Castaño Pineda - Luisa Henao"
+date: "2024-09-25"
+output: 
+  html_document: 
+    theme: united
+    highlight: tango
+    toc: yes
+    toc_float: yes
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(sf)
+```
+
+# Datos
+
+Los datos fueron obtenidos de: <https://www.medellin.gov.co/geomedellin/datosAbiertos/1024>
+
+**Establecimientos de Industria y Comercio** de los contribuyentes inscritos en el Registro de información tributaria (RIT) georreferenciados, con el tipo de actividad económica desarrollada por el contribuyente. Se actualiza en línea con la inscripción, cancelación o actualización de los establecimientos en el sistema de información de la subsecretaría.
+
+```{r, message=FALSE, include=FALSE}
+# Cargar el archivo geojson de datos de comercios en medellín
+pp_data <- st_read("establecimientos_de_indus.geojson")
+# Cargar el archivo geojson de barrios y veredas de medellín
+medellin <- st_read("barrios_y_veredas.geojson")
+```
+
+```{r, eval=FALSE}
+# Ver estructura de los datos
+class(pp_data)
+class(medellin)
+str(pp_data)
+str(medellin)
+```
+```{r, eval=FALSE}
+pp_data %>% filter(nombre_establecimiento != "NO POSEE ESTABLECIMIENTOS", codigociiu==5611) %>% View()
+```
+
+
+```{r}
+comercios_min <- pp_data %>% filter(codigociiu == "4741")
+# Graficar Medellín coloreando los barrios y superponiendo los puntos de los establecimientos
+ggplot() +
+  geom_sf(data = medellin, color = "black", alpha = 0.3) +  # Colorear los barrios
+  geom_sf(data = comercios_min, aes(color = codigociiu), alpha = 0.7) +  # Superponer los puntos
+  labs(title = "Establecimientos Comerciales de código 4741 en Medellín", fill = "Barrios", color = "Código CIUU") +
+  theme_minimal()
+```
+
+
