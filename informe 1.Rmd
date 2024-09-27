@@ -18,6 +18,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r, warning=FALSE, message=FALSE}
 library(tidyverse)
 library(sf)
+library(mapview)
+library(spatstat)
 ```
 
 # Datos
@@ -40,19 +42,128 @@ class(medellin)
 str(pp_data)
 str(medellin)
 ```
-```{r, eval=FALSE}
-pp_data %>% filter(nombre_establecimiento != "NO POSEE ESTABLECIMIENTOS", codigociiu==5611) %>% View()
-```
 
 
 ```{r}
-comercios_min <- pp_data %>% filter(codigociiu == "4741")
+pp_data <- pp_data %>% filter(nombre_establecimiento != "NO POSEE ESTABLECIMIENTOS") 
+```
+
+# Visualización datos{.tabset}
+
+## Mapa por ciuu barrios y comunas 
+```{r, warning=FALSE}
+codigos = pp_data$codigociiu %>% unique() %>% sort()
+codigo_ciiu = 4741
+codigo_ciiu = codigos[344]
+comercios_min <- pp_data %>% filter(codigociiu == codigo_ciiu)
 # Graficar Medellín coloreando los barrios y superponiendo los puntos de los establecimientos
 ggplot() +
   geom_sf(data = medellin, color = "black", alpha = 0.3) +  # Colorear los barrios
   geom_sf(data = comercios_min, aes(color = codigociiu), alpha = 0.7) +  # Superponer los puntos
-  labs(title = "Establecimientos Comerciales de código 4741 en Medellín", fill = "Barrios", color = "Código CIUU") +
+  labs(title = "Establecimientos Comerciales por código CIUU en Medellín", fill = "Barrios", color = "Código CIUU") +
   theme_minimal()
 ```
+
+## Mapa solo barrios
+
+```{r, warning=FALSE}
+codigos = pp_data$codigociiu %>% unique() %>% sort()
+codigo_ciiu = 4741
+codigo_ciiu = codigos[344]
+comercios_min <- pp_data %>% filter(codigociiu == codigo_ciiu)
+
+medellin_b <- medellin %>% filter(subtipo_barriovereda == 1)
+
+
+points_intersect <- lengths(st_intersects(comercios_min, medellin_b)) > 0 
+comercios_min_b <- comercios_min[points_intersect, ]
+
+# Graficar Medellín coloreando los barrios y superponiendo los puntos de los establecimientos
+ggplot() +
+  geom_sf(data = medellin_b, color = "black", alpha = 0.3) +  # Colorear los barrios
+  geom_sf(data= comercios_min_b, aes(color = codigociiu), alpha = 0.7) +  # Superponer los puntos
+  labs(title = "Establecimientos Comerciales por código CIUU en Medellín", color = "Código CIUU") +
+  theme_minimal()
+```
+
+## Mapa interactivo (mapview)
+
+```{r}
+
+mapview(comercios_min_b,
+  zcol = "comuna",
+  label = comercios_min_b$nombre_establecimiento,
+  legend = TRUE
+)
+
+```
+
+
+# Creación de objetos ppp
+
+```{r}
+win <- as.owin(medellin_b)
+
+ppp_locations <- ppp(
+  x = st_coordinates(comercios_min_b)[, 1],
+  y = st_coordinates(comercios_min_b)[, 2],
+  window = win
+)
+
+unitname(ppp_locations) <- "meters"
+
+ppp_locations <- as.ppp(ppp_locations)
+
+koords = c(2241000, 2257000)
+ppp_locations$window$yrange = koords
+
+plot(ppp_locations)
+```
+
+
+# Pruebas de cuadratura{.tabset}
+quadratcount: Divide el área de Medellín en una cuadrícula de 3x4 para contar el número de puntos en cada cuadrante.
+quadrat.test: Realiza una prueba de Chi-cuadrado para evaluar si la distribución espacial es aleatoria o no.
+
+Si los datos rechazan la hipótesis de aleatoriedad espacial se puede decir que los datos tienen una estructura espacial bien sea de cluster o inhibitoria.
+
+## Plot
+
+```{r}
+par(mar = c(0, 0, 1.5, 1.5),
+    cex.main = 2)
+
+qc_locations <- quadratcount(ppp_locations, nx = 3, ny = 4)
+plot(ppp_locations, pch = 3, cex = 0.6)
+plot(qc_locations, add = TRUE, textargs = list(col = "red"))
+```
+
+## Test
+
+```{r}
+quadrat.test(qc_locations)
+```
+
+# Visualización de la intensidad del proceso
+
+Se utilizaron 3 valores diferentes para el ancho de banda del kernel (1000, 2500, 5000), que representan el parámetro de suavizado de la función de densidad. Este parametro controla el grado de suavidad en la estimación de la intensidad. Valores más pequeños generan estimaciones más detalladas, mientras que valores más grandes suavizan más la intensidad. Adicionalmente se usaron 2 tipos de kernel. kernel gaussiano y un kernel quartic.
+Para todos los casos se observa que 1000 puede ser un ancho de banda aduecuado, no se observan mucha diferencia entre los kernel quartic y gaussiano.
+
+```{r}
+par(mfrow = c(2, 3), mar = c(0, 0, 1, 2))
+sigma <- c(500, 1000, 1500)
+main <- c("Gaussiano","Quartic")
+kernels <- c("gaussian","quartic")
+for (i in 1:2) {
+  for (j in 1:3) {
+    ds <- density.ppp(ppp_locations, sigma = sigma[j], kernel = kernels[i])
+    plot(ds,
+      main = paste0(main[i], ", sigma: ", sigma[j])
+    )
+    plot(ppp_locations, add = TRUE, cex = 0.01, regular = FALSE)
+  }
+}
+```
+
 
 
