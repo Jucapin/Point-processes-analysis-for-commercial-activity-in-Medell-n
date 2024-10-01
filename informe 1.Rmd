@@ -1,6 +1,6 @@
 ---
 title: "Análisis de procesos puntuales para actividad comercial en Medellín"
-author: "Julian Castaño Pineda - Luisa Henao"
+author: "Julian Castaño Pineda - Luisa Henao Vargas"
 date: "2024-09-25"
 output: 
   html_document: 
@@ -21,6 +21,14 @@ library(sf)
 library(mapview)
 library(spatstat)
 ```
+
+# Pregunta de Investigación 
+
+¿Cuál es la distribución espacial de la apertura de une establecimiento comercial de bebidas alcohólicas y tabaco en la ciudad de Medellín, y cómo puede esta información guiar la ubicación estratégica de nuevos establecimientos en función de la demanda potencial?
+
+El objetivo de este estudio es analizar la distribución de licoreras y cigarrerías georreferenciadas, explorando e identificando posibles patrones y áreas de alta concentración, para proporcionar recomendaciones sobre la ubicación estratégica de nuevos negocios en función de la competencia, la demanda del mercado y las características sociodemográficas de la zona.
+
+Esto permite no solo entender la distribución actual, sino también ofrecer información valiosa para la toma de decisiones empresariales.
 
 # Datos
 
@@ -101,7 +109,7 @@ mapview(comercios_min_b,
 
 # Creación de objetos ppp
 
-```{r}
+```{r, warning=FALSE}
 win <- as.owin(medellin_b)
 
 ppp_locations <- ppp(
@@ -144,10 +152,28 @@ plot(qc_locations, add = TRUE, textargs = list(col = "red"))
 quadrat.test(qc_locations)
 ```
 
-# Visualización de la intensidad del proceso
+# Estimación de la intensidad del proceso
 
-Se utilizaron 3 valores diferentes para el ancho de banda del kernel (1000, 2500, 5000), que representan el parámetro de suavizado de la función de densidad. Este parametro controla el grado de suavidad en la estimación de la intensidad. Valores más pequeños generan estimaciones más detalladas, mientras que valores más grandes suavizan más la intensidad. Adicionalmente se usaron 2 tipos de kernel. kernel gaussiano y un kernel quartic.
+Estimación por suavizado Kernel:
+
+$$\hat{\lambda}(x) = \frac{1}{h^2} \sum_{i=1}^{n} \frac{\kappa\left(\frac{\|x - x_i\|}{h}\right)}{q\left(\|x\|\right)}$$
+
+Se calcularon 2 tipos de kernel. Kernel gaussiano y un kernel quartic.
+
+**1. Kernel cuártico (o biweight kernel):**
+
+$$K(u) = \frac{15}{16}(1 - u^2)^2 \quad \text{para} \quad |u| \leq 1$$
+
+$$K(u) = 0 \quad \text{para} \quad |u| > 1$$
+
+**2. Kernel gaussiano:**
+
+$$K(u) = \frac{1}{\sqrt{2\pi}} \exp\left(-\frac{u^2}{2}\right)$$
+
+
+Se utilizaron 3 valores diferentes para el ancho de banda del kernel (1000, 2500, 5000), que representan el parámetro de suavizado de la función de densidad. Este parametro controla el grado de suavidad en la estimación de la intensidad. Valores más pequeños generan estimaciones más detalladas, mientras que valores más grandes suavizan más la intensidad. 
 Para todos los casos se observa que 1000 puede ser un ancho de banda aduecuado, no se observan mucha diferencia entre los kernel quartic y gaussiano.
+
 
 ```{r}
 par(mfrow = c(2, 3), mar = c(0, 0, 1, 2))
