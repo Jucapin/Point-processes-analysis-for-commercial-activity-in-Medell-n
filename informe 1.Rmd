@@ -97,7 +97,7 @@ ggplot() +
 ## Mapa interactivo (mapview)
 
 ```{r}
-
+rm(pp_data,comercios_min,medellin)
 mapview(comercios_min_b,
   zcol = "comuna",
   label = comercios_min_b$nombre_establecimiento,
@@ -106,8 +106,19 @@ mapview(comercios_min_b,
 
 ```
 
+## Datos 
 
-# Creación de objetos ppp
+```{r}
+comercios_min_b %>% str()
+```
+
+# Pruebas de cuadratura{.tabset}
+quadratcount: Divide el área de Medellín en una cuadrícula de 3x4 para contar el número de puntos en cada cuadrante.
+quadrat.test: Realiza una prueba de Chi-cuadrado para evaluar si la distribución espacial es aleatoria o no.
+
+Si los datos rechazan la hipótesis de aleatoriedad espacial se puede decir que los datos tienen una estructura espacial bien sea de cluster o inhibitoria.
+
+## Creación de objeto ppp
 
 ```{r, warning=FALSE}
 win <- as.owin(medellin_b)
@@ -128,13 +139,6 @@ ppp_locations$window$yrange = koords
 plot(ppp_locations)
 ```
 
-
-# Pruebas de cuadratura{.tabset}
-quadratcount: Divide el área de Medellín en una cuadrícula de 3x4 para contar el número de puntos en cada cuadrante.
-quadrat.test: Realiza una prueba de Chi-cuadrado para evaluar si la distribución espacial es aleatoria o no.
-
-Si los datos rechazan la hipótesis de aleatoriedad espacial se puede decir que los datos tienen una estructura espacial bien sea de cluster o inhibitoria.
-
 ## Plot
 
 ```{r}
@@ -148,13 +152,13 @@ plot(qc_locations, add = TRUE, textargs = list(col = "red"))
 
 ## Test
 
-```{r}
+```{r, warning=FALSE}
 quadrat.test(qc_locations)
 ```
 
 # Estimación de la intensidad del proceso
 
-Estimación por suavizado Kernel:
+## Estimación por suavizado Kernel:
 
 $$\hat{\lambda}(x) = \frac{1}{h^2} \sum_{i=1}^{n} \frac{\kappa\left(\frac{\|x - x_i\|}{h}\right)}{q\left(\|x\|\right)}$$
 
@@ -191,5 +195,103 @@ for (i in 1:2) {
 }
 ```
 
+## Estimación paramétrica{.tabset}
+
+### Modelo Base
+```{r}
+base_loc <- ppm(ppp_locations ~1)
+base_loc
+```
+
+
+### Modelo Log-linear
+```{r}
+loglin_loc <- ppm(ppp_locations ~ x + y)
+coef(loglin_loc)
+```
+
+### Modelo Log-Cuadratico 
+
+```{r}
+logquad_loc <- ppm(ppp_locations ~ polynom(x, y, 2))
+coef(logquad_loc)
+
+```
+
+### Gráficas modelos 
+
+```{r}
+par(mar = c(0, 0, 1.5, 1.5),
+    mfrow = c(1, 2),
+    cex.main = 2)
+
+plot(predict(loglin_loc), main = "log-linear")
+points(ppp_locations, pch = 16, cex = 0.2)
+
+plot(predict(logquad_loc), main = "log-quadratic")
+points(ppp_locations, pch = 16, cex = 0.2)
+```
+
+## Evaluación de modelos
+
+Una vez que hemos ajustado el modelo log-quadrático a nuestros datos, es fundamental evaluar su adecuación mediante el análisis de los residuales. Las curvas suavizadas en el gráfico de diagnóstico nos muestran cómo se ajusta el modelo a las ubicaciones, revelando patrones significativos en la distribución de los datos.
+
+```{r}
+par(mar = c(0, 0, 1.5, 1.5),
+    mfrow = c(1, 2),
+    cex.main = 1.5)
+
+diagnose.ppm(loglin_loc, which = "smooth", main = "loglin model")
+diagnose.ppm(logquad_loc, which = "smooth", main = "Log-quatratic model")
+```
+
+# Tipo de estructura{.tabset}
+
+## Distancia de espacio vacío
+
+Debido a que $\hat{F}(r)< F_{pois} (r)$  para las tres estimaciones corregidas, sugiere un patrón agrupado.
+
+```{r}
+plot(Fest(ppp_locations), main = "Función F")
+```
+
+
+
+## Distancia del vecino más cercano
+
+Las ubicaciones observadas están más cerca entre ellas de lo esperado para un patrón agrupado. Todas las estimaciones $\hat{G}(r)> G_{pois} (r)$, sugiere un patrón agrupado.
+
+```{r}
+plot(Gest(ppp_locations), main = "Función G" )
+```
+
+## La función J 
+
+$J(r) < 1 $ lo que sugiere un patrón agrupado.
+
+```{r}
+plot(Jest(ppp_locations), main = "Función J")
+
+```
+
+# Test de Monte Carlo 
+
+```{r}
+M <- 39
+k <- 1
+```
+```{r, message=TRUE,include=FALSE}
+FE <- envelope(ppp_locations, Fest, M, 1)
+GE <- envelope(ppp_locations, Gest, M, 1)
+JE <- envelope(ppp_locations, Jest, M, 1)
+```
+
+
+```{r}
+par(mfrow = c(1,3), mar = c(0, 0, 1, 1))
+plot(FE, main = "Function F Envelopes")
+plot(GE, main = "Function G Envelopes")
+plot(JE, main = "Function J Envelopes")
+```
 
 
